@@ -652,7 +652,7 @@ var CFG_ROT = [['Congregação', 'Congregação', 'text'], ['Dia da reunião', '
   ['Mensagem do lembrete (WhatsApp)', 'Mensagem do lembrete (WhatsApp). Campos: {nome} (primeiro nome), {nome_completo}, {parte}, {acompanhante}, {data}, {periodo}', 'texto'],
   ['Salas adicionais', 'Salas adicionais do Salão do Reino', 'salas'],
   ['Mensagem da designação (WhatsApp)', 'Mensagem da designação (WhatsApp). Campos: {nome}, {parte}, {acompanhante}, {data}, {local}, {periodo}', 'texto'],
-  ['Endereço do web app', 'Endereço do web app usado nos links de acesso (publicado, termina em /exec)', 'text'],
+  ['Endereço do web app', 'Endereço do site do sistema (usado nos links de acesso)', 'text'],
   ['Controle de acesso por e-mail', 'Controlar o acesso (Sim = só entra quem tem link com token; Não = qualquer pessoa com o endereço entra como administrador)', 'acesso'],
   ['Administradores (e-mails)', 'Administrador do sistema: e-mails Google (separados por vírgula) reconhecidos quando a pessoa abre o endereço já logada na conta Google, sem token (não vale se o acesso for anônimo).', 'texto']];
 function carregarCfg() { return call('apiConfigLer').then(function (c) { S.cfg = c; renderCfg(); }, function (e) { toast(e.message, true); }); }
