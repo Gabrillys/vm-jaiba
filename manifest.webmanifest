@@ -1,9 +1,9 @@
 {
-  "id": "/vida-ministerio-jaiba/app2",
+  "id": "/vm-jaiba/",
   "name": "Vida e Ministério — Central Jaíba",
   "short_name": "Vida e Ministério",
   "description": "Programação e designações da Reunião Vida e Ministério.",
-  "start_url": "./?pwa=1",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
