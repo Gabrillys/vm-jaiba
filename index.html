@@ -158,7 +158,7 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 </head>
 <body>
 <header class="top">
-  <div class="top-in"><div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/></svg></span><div><h1>Vida e Ministério</h1><p id="cong">Carregando…</p></div></div><button class="b" id="bHist" hidden title="Desfazer as últimas alterações (até 50)" style="margin-left:auto;flex:none">↶ Desfazer</button></div>
+  <div class="top-in"><div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/></svg></span><div><h1>Vida e Ministério</h1><p id="cong">Carregando…</p></div></div><button class="b" id="bHist" hidden disabled title="Retornar um passo" style="margin-left:auto;flex:none">↶ Retornar <span id="bHistN"></span></button></div>
   <nav id="tabs" aria-label="Seções">
     <button data-v="prog" class="on"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg><span class="lg">Programação</span><span class="sh">Programa</span></button>
     <button data-v="cad"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c2 .8 3 2.7 3 5.6"/></svg><span class="lg">Cadastros</span><span class="sh">Cadastros</span></button>
@@ -178,7 +178,6 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="busy"><div><span class="spin"></span><span id="busyTxt">Aguarde…</span></div></div>
-<dialog id="dlgHist"><div id="dlgHistBody"></div></dialog>
 <dialog id="dlg"><form method="dialog"><p><b>Colar vários nomes</b><br><span class="hint">Um nome por linha.</span></p><textarea id="dlgTxt" rows="10"></textarea><p style="text-align:right;margin-bottom:0"><button class="b sec" value="cancel">Cancelar</button> <button class="b primary" id="dlgOk" value="ok">Adicionar</button></p></form></dialog>
 
 <script src="config.js"></script>
@@ -194,7 +193,7 @@ var S = { env: {}, envAuto: null, estado: null, ap: null, cont: null, vis: null,
 
 function $(s) { return document.querySelector(s); }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function call(fn) {
+function call0(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   if (API_URL) {
     return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ t: TOKEN, fn: fn, args: args }), credentials: 'omit', redirect: 'follow' })
@@ -207,6 +206,13 @@ function call(fn) {
       .withFailureHandler(function (e) { rej(new Error(e && e.message ? e.message : String(e))); });
     r.apiCall(TOKEN, fn, args);
   });
+}
+/* Toda chamada que altera dados atualiza o contador do botão Retornar. */
+var ESCRITA_RE = /Salvar|Substituir|Manual(Ligar|Desligar|Designar)|VisitaDados|VisitaDesignar|Capturar|Gerar|AtualizarTudo|ApostilaDesignar|SalaPresidente/;
+function call(fn) {
+  var p = call0.apply(null, arguments);
+  if (ESCRITA_RE.test(fn) && !/Ler$/.test(fn)) p.then(function () { setTimeout(atualizaHist, 500); }, function () {});
+  return p;
 }
 function toast(msg, err) {
   var t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
@@ -725,27 +731,27 @@ function acessoNegado(p) {
   };
   [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog') b.style.display = 'none'; });
 }
-/* Histórico / Desfazer (até 50 ações; só Presidente Geral e administrador) */
-function abrirHist() {
-  task('Abrindo o histórico…', function () { return call('apiHistorico'); }).then(function (d) {
-    var h = '<p style="margin-top:0"><b>Desfazer alterações</b><br><span class="hint">Guarda as últimas ' + d.max + ' ações. “Voltar até aqui” desfaz aquela ação e todas as mais novas.</span></p>';
-    h += d.itens.length ? '<ul class="hist">' + d.itens.map(function (i, k) {
-      return '<li><div class="tx"><b>' + esc(i.acao) + '</b><small>' + esc(i.quando) + ' · ' + esc(i.por) + '</small></div><button class="b ' + (k === 0 ? 'primary' : 'sec') + '" data-hist="' + (k + 1) + '" data-acao="' + esc(i.acao) + '">' + (k === 0 ? 'Desfazer' : 'Voltar até aqui') + '</button></li>';
-    }).join('') + '</ul>' : '<div class="empty">Nenhuma alteração registrada ainda.</div>';
-    h += '<p style="text-align:right;margin-bottom:0"><button class="b sec" id="histFechar">Fechar</button></p>';
-    $('#dlgHistBody').innerHTML = h; $('#dlgHist').showModal();
+/* Retornar: volta UM passo por clique, como o "voltar" de um navegador (o sistema guarda os últimos 50 passos). Só Presidente Geral e administrador. */
+S.hist = { n: 0, ultima: '' };
+function atualizaHist() {
+  var b = $('#bHist'); if (!b || b.hidden) return;
+  call0('apiHistorico').then(function (d) {
+    S.hist = { n: d.itens.length, ultima: d.itens.length ? d.itens[0].acao : '', quando: d.itens.length ? d.itens[0].quando : '' };
+    b.disabled = !S.hist.n; $('#bHistN').textContent = S.hist.n ? '(' + S.hist.n + ')' : '';
+    b.title = S.hist.n ? 'Retornar um passo — desfaz: ' + S.hist.ultima + ' (' + S.hist.quando + ')' : 'Nada para retornar';
   }, function () {});
 }
-document.addEventListener('click', function (e) {
-  var t = e.target; if (!t || !t.closest) return;
-  if (t.closest('#bHist')) { abrirHist(); return; }
-  if (t.id === 'histFechar') { $('#dlgHist').close(); return; }
-  var b = t.closest('[data-hist]'); if (!b) return;
-  var n = +b.dataset.hist;
-  if (!confirm(n === 1 ? 'Desfazer a última ação?\n\n«' + b.dataset.acao + '»' : 'Desfazer ' + n + ' ações, voltando até antes de:\n\n«' + b.dataset.acao + '»\n\nAs mais novas também serão desfeitas.')) return;
-  $('#dlgHist').close();
-  task('Desfazendo…', function () { return call('apiDesfazer', n); }).then(function (r) { toast(r.desfeitas + ' ação(ões) desfeita(s)'); setTimeout(function () { location.reload(); }, 900); }, function () {});
-});
+function retornar() {
+  if (!S.hist.n) return;
+  if (!confirm('Retornar um passo?\n\nSerá desfeito: «' + S.hist.ultima + '»\n' + (S.hist.quando || '') + '\n\nNão há "avançar": confira antes de confirmar.')) return;
+  task('Retornando um passo…', function () { return call0('apiDesfazer', 1); }).then(function (r) {
+    toast('Desfeito: ' + (r.acoes && r.acoes[0] ? r.acoes[0] : 'último passo'));
+    S.sem = {}; S.lem = {}; S.env = {}; S.cadSujo = false; S.estado = null; S.cat = null;
+    var on = document.querySelector('#tabs button.on'); if (on) on.click();
+    atualizaHist();
+  }, function () {});
+}
+document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#bHist')) retornar(); });
 function iniciar() {
   if (API_URL && !TOKEN) { acessoNegado(null); return; }
   call('apiPapel').then(function (p) {
@@ -757,7 +763,7 @@ function iniciar() {
       [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog' && b.parentNode) b.parentNode.removeChild(b); });
       ['cad', 'ind', 'vis', 'evt', 'cfg'].forEach(function (v) { var e = $('#v-' + v); if (e && e.parentNode) e.parentNode.removeChild(e); });
     }
-    if (p.papel === 'admin' || p.papel === 'geral') { var bh = $('#bHist'); if (bh) bh.hidden = false; }
+    if (p.papel === 'admin' || p.papel === 'geral') { var bh = $('#bHist'); if (bh) { bh.hidden = false; atualizaHist(); } }
     carregarProg();
   }, function () { carregarProg(); });
 }
