@@ -221,7 +221,7 @@ $('#tabs').addEventListener('click', function (e) {
   if (S.cadSujo && b.dataset.v !== 'cad' && !confirm('Há alterações não salvas no cadastro. Sair mesmo assim?')) return;
   if (b.dataset.v !== 'cad') S.cadSujo = false;
   [].forEach.call($('#tabs').children, function (x) { x.classList.toggle('on', x === b); });
-  ['prog', 'cad', 'ind', 'vis', 'evt', 'cfg'].forEach(function (v) { $('#v-' + v).hidden = v !== b.dataset.v; });
+  ['prog', 'cad', 'ind', 'vis', 'evt', 'cfg'].forEach(function (v) { var ev = $('#v-' + v); if (ev) ev.hidden = v !== b.dataset.v; });
   if (b.dataset.v === 'prog') { if (S.estado) renderProg(); carregarProg(); }
   if (b.dataset.v === 'cad') carregarCad(S.cadNome || null);
   if (b.dataset.v === 'ind') carregarInd();
@@ -467,15 +467,14 @@ function renderApostilas() {
 function renderProg() {
   var est = S.estado, h = pageH('Programação', 'Semanas capturadas do wol.jw.org e designadas pelo rodízio.');
   h += '<div class="card toolbar">'
-    + '<div class="tb-row admin-only"><button class="b primary" id="bAtual">Atualizar do wol.jw.org e designar</button>'
+    + (S.papel !== 'presidente' ? '<div class="tb-row admin-only"><button class="b primary" id="bAtual">Atualizar do wol.jw.org e designar</button>'
     + '<div class="btn-group"><button class="b sec" id="bGerar">Designar semanas novas</button><button class="b sec" id="bRegerar">Regerar designações futuras</button></div></div>'
-    + '<div class="tb-sep admin-only"></div>'
+    + '<div class="tb-sep admin-only"></div>' : '')
     + '<div class="tb-row"><label for="selBim">PDF da Apostila</label>'
     + '<select id="selBim">' + (est.bimestres.length ? est.bimestres.map(function (b) { return '<option value="' + esc(b.valor) + '"' + (b.valor === est.sugestaoBimestre ? ' selected' : '') + '>' + esc(b.rotulo) + ' (' + b.semanas + ' sem.)</option>'; }).join('') : '<option value="">Nenhum período designado</option>') + '</select>'
     + '<button class="b" id="bPdf"' + (est.bimestres.length ? '' : ' disabled') + '>Baixar PDF (A4)</button></div></div>';
-  h += '<div id="apBox" class="admin-only"></div>';
-  h += '<div id="vaziosBox" class="admin-only"></div>';
-  h += '<details class="ap admin-only" id="presBox"' + (S.presAberto ? ' open' : '') + '><summary><b>Presidentes das próximas semanas</b> <span class="hint" style="margin:0">enviar o link de acesso</span></summary><div id="presBody" style="padding:8px 0"></div></details>';
+  if (S.papel !== 'presidente') h += '<div id="apBox" class="admin-only"></div><div id="vaziosBox" class="admin-only"></div>';
+  if (S.papel !== 'presidente') h += '<details class="ap admin-only" id="presBox"' + (S.presAberto ? ' open' : '') + '><summary><b>Presidentes das próximas semanas</b> <span class="hint" style="margin:0">enviar o link de acesso</span></summary><div id="presBody" style="padding:8px 0"></div></details>';
   if (!est.semanas.length) h += '<div class="card empty">Nenhuma semana capturada. Clique em “Atualizar do wol.jw.org e designar”.</div>';
   est.semanas.forEach(function (s) {
     var aberta = S.abertas[s.chave] ? ' open' : '';
@@ -715,7 +714,14 @@ $('#v-cfg').addEventListener('click', function (e) {
 function acessoNegado(p) {
   var m = !TOKEN ? 'Abra o <b>link de acesso completo</b> que o administrador enviou (ele termina em <b>?t=…</b>).'
     : (p && p.motivo === 'fora' ? 'O seu link é válido, mas o acesso de presidente só fica aberto do domingo anterior até o dia da reunião da sua semana.' + (p.proxima ? ' O seu próximo acesso abre de <b>' + esc(p.proxima.de) + '</b> a <b>' + esc(p.proxima.ate) + '</b>: use o mesmo link nesse período.' : '') : 'Este link não é mais válido. Peça um novo ao administrador.');
-  $('#v-prog').innerHTML = '<div class="card empty"><b>Acesso restrito</b><br>' + m + '</div>';
+  $('#v-prog').innerHTML = '<div class="card empty"><b>Acesso restrito</b><br>' + m + (API_URL && !TOKEN ? '<div style="margin-top:14px;text-align:left;max-width:560px;margin-left:auto;margin-right:auto"><label>Cole aqui o seu link de acesso</label><input type="text" id="colaLink" placeholder="https://gabrillys.github.io/vida-ministerio-jaiba/?t=…" autocomplete="off"><p style="margin:10px 0 0;text-align:center"><button class="b primary" id="colaOk">Entrar</button></p></div>' : '') + '</div>';
+  var ok = document.getElementById('colaOk');
+  if (ok) ok.onclick = function () {
+    var v = (document.getElementById('colaLink').value || '').trim(), mt = v.match(/[?&]t=([A-Za-z0-9]+)/), t = mt ? mt[1] : (/^[A-Za-z0-9]{20,64}$/.test(v) ? v : '');
+    if (!t) { toast('Cole o link completo recebido do administrador (termina em ?t=…).', true); return; }
+    try { localStorage.setItem('vm_token', t); } catch (e2) { /* sem armazenamento */ }
+    location.href = location.pathname + '?t=' + t;
+  };
   [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog') b.style.display = 'none'; });
 }
 function iniciar() {
@@ -723,7 +729,12 @@ function iniciar() {
   call('apiPapel').then(function (p) {
     S.papel = p.papel; S.ate = p.ate;
     if (!p.papel) { acessoNegado(p); return; }
-    if (p.papel === 'presidente') { document.body.classList.add('pres'); $('#cong').textContent = 'Presidente da semana · acesso até ' + p.ate; }
+    if (p.papel === 'presidente') {
+      document.body.classList.add('pres'); $('#cong').textContent = 'Presidente da semana · acesso até ' + p.ate;
+      // o presidente da semana só tem a Programação: as demais áreas nem existem na tela dele
+      [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog' && b.parentNode) b.parentNode.removeChild(b); });
+      ['cad', 'ind', 'vis', 'evt', 'cfg'].forEach(function (v) { var e = $('#v-' + v); if (e && e.parentNode) e.parentNode.removeChild(e); });
+    }
     carregarProg();
   }, function () { carregarProg(); });
 }
