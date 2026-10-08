@@ -85,6 +85,7 @@ td,th{padding:7px 12px;vertical-align:top;text-align:left}
 .nl{padding:12px 16px;background:var(--warnbg);border-top:1px solid var(--bd);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .nl label{font-weight:600}.nl input{flex:1;min-width:200px}
 .nl .st{font-size:12px;color:var(--mut)}
+.li{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--bd)}.li:first-child{border-top:0}#tkLink{flex:1 1 100%;min-width:0}.li .tx{flex:1 1 190px;min-width:0;overflow-wrap:anywhere}.li .tx small{display:block;color:var(--mut)}.li .ac{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lista{padding:0 16px 8px}
 .lem{padding:12px 16px;border-top:1px solid var(--bd)}.lem table td{border-top:1px solid var(--bd);vertical-align:middle}.lem td.a{width:1%;white-space:nowrap;text-align:right}.lem small{display:block;color:var(--mut)}
 a.b.wa{display:inline-block;background:#1b8f4c;color:#fff;border-radius:9px;padding:7px 14px;text-decoration:none;font-size:13px;font-weight:600}
 a.b.wa:hover{filter:brightness(1.1)}
@@ -147,7 +148,7 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
   .pr td.t{flex:0 0 56px;width:auto}.pr td:nth-child(2){flex:1 1 calc(100% - 56px)}
   .pr td.n{flex:1 1 100%;width:auto;text-align:left;padding:0 12px 8px 68px}
   .pr.abre td[colspan]{flex:1 1 100%}.pr.sec td{flex:1 1 100%}
-  .lem td.a{display:block;width:auto;text-align:left;padding-top:0}.lem tr{display:block;border-top:1px solid var(--bd);padding:6px 0}.lem table td{border-top:0}
+  .lem td.a{display:block;width:auto;text-align:left;padding-top:0;white-space:normal}.lem td.a .b,.lem td.a select{margin:2px 4px 2px 0}.lem tr{display:block;border-top:1px solid var(--bd);padding:6px 0}.lem table td{border-top:0}
   .grid th,.grid td{padding:6px 8px}
   .actionbar{bottom:62px}
   #toast{bottom:76px}
@@ -494,9 +495,9 @@ function carregarPres() {
   var b = $('#presBody'); if (!b) return; b.innerHTML = '<div class="empty">Carregando…</div>';
   call('apiPresidentes').then(function (d) {
     var b2 = $('#presBody'); if (!b2) return;
-    b2.innerHTML = d.itens.length ? '<table><tr><th>Semana</th><th>Presidente</th><th>Acesso vigente</th><th></th></tr>' + d.itens.map(function (i) {
-      return '<tr><td>' + esc(i.periodo) + '</td><td><b>' + esc(i.nome) + '</b></td><td>' + esc(i.de) + ' a ' + esc(i.ate) + (i.vigente ? ' <span class="tag ok">agora</span>' : '') + '</td><td><button class="b sec" data-prcopy="' + esc(i.nome) + '|' + esc(i.semana) + '">Copiar link</button> <button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button></td></tr>';
-    }).join('') + '</table><div class="hint">O link é um por pessoa e vale automaticamente apenas do domingo anterior até o dia da reunião de cada semana dela.</div>' : '<div class="empty">Nenhum presidente designado nas próximas semanas.</div>';
+    b2.innerHTML = d.itens.length ? '<div class="lista">' + d.itens.map(function (i) {
+      return '<div class="li"><div class="tx"><b>' + esc(i.nome) + '</b><small>' + esc(i.periodo) + ' · acesso de ' + esc(i.de) + ' a ' + esc(i.ate) + (i.vigente ? ' <span class="tag ok">agora</span>' : '') + '</small></div><div class="ac"><button class="b sec" data-prcopy="' + esc(i.nome) + '|' + esc(i.semana) + '">Copiar link</button><button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button></div></div>';
+    }).join('') + '</div><div class="hint" style="padding:0 16px 12px">O link é um por pessoa e vale automaticamente apenas do domingo anterior até o dia da reunião de cada semana dela.</div>' : '<div class="empty">Nenhum presidente designado nas próximas semanas.</div>';
   }, function (e) { var b3 = $('#presBody'); if (b3) b3.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
 $('#v-prog').addEventListener('toggle', function (e) { if (e.target.id === 'presBox') { S.presAberto = e.target.open; if (e.target.open) carregarPres(); } }, true);
@@ -691,10 +692,10 @@ function renderTok() {
     + '<div><label id="tkLbl">Nome do Presidente Geral</label><input type="text" id="tkNome" list="tkNomes" placeholder="Nome"><datalist id="tkNomes">' + d.nomes.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></div></div>'
     + '<div class="actionbar"><button class="b primary" id="tkGerar">Gerar token</button></div>';
   if (S.novoTok) h += '<div class="bar"><b>Token gerado para ' + esc(S.novoTok.nome) + '</b><span class="hint" style="margin:0">Copie e envie agora. Qualquer token antigo desta pessoa foi apagado.</span><input type="text" readonly id="tkLink" value="' + esc(S.novoTok.link) + '" onclick="this.select()"><button class="b primary" data-tkcopy="' + esc(S.novoTok.link) + '">Copiar link</button> <button class="b sec" data-tkzap="' + esc(S.novoTok.link) + '">Enviar por WhatsApp</button></div>';
-  h += d.tokens.length ? '<table><tr><th>Tipo</th><th>Nome</th><th>Criado</th><th>Link</th><th></th></tr>' + d.tokens.map(function (t) {
+  h += d.tokens.length ? '<div class="lista">' + d.tokens.map(function (t) {
     var link = (d.url || '') + '?t=' + t.token;
-    return '<tr><td>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + '</td><td>' + esc(t.nome) + '</td><td>' + esc(t.criado) + '</td><td><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button> <button class="b sec" data-tkzap="' + esc(link) + '" data-tkn="' + esc(t.nome) + '">WhatsApp</button></td><td><button class="x" data-tkdel="' + esc(t.id) + '">✕</button></td></tr>';
-  }).join('') + '</table>' : '<div class="empty">Nenhum token gerado.</div>';
+    return '<div class="li"><div class="tx"><b>' + esc(t.nome) + '</b><small>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + ' · criado em ' + esc(t.criado) + '</small></div><div class="ac"><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button><button class="b sec" data-tkzap="' + esc(link) + '" data-tkn="' + esc(t.nome) + '">WhatsApp</button><button class="x" data-tkdel="' + esc(t.id) + '" title="Revogar">✕</button></div></div>';
+  }).join('') + '</div>' : '<div class="empty">Nenhum token gerado.</div>';
   b.innerHTML = h;
 }
 $('#v-cfg').addEventListener('change', function (e) { if (e.target.id === 'tkTipo') $('#tkLbl').textContent = e.target.value === 'geral' ? 'Nome do Presidente Geral' : 'Irmão que será o presidente'; });
