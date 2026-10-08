@@ -85,6 +85,7 @@ td,th{padding:7px 12px;vertical-align:top;text-align:left}
 .nl{padding:12px 16px;background:var(--warnbg);border-top:1px solid var(--bd);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .nl label{font-weight:600}.nl input{flex:1;min-width:200px}
 .nl .st{font-size:12px;color:var(--mut)}
+.hist{list-style:none;margin:0;padding:0;max-height:52vh;overflow:auto}.hist li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--bd)}.hist li:first-child{border-top:0}.hist small{display:block;color:var(--mut)}.hist .tx{min-width:0;overflow-wrap:anywhere}
 .li{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--bd)}.li:first-child{border-top:0}#tkLink{flex:1 1 100%;min-width:0}.li .tx{flex:1 1 190px;min-width:0;overflow-wrap:anywhere}.li .tx small{display:block;color:var(--mut)}.li .ac{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.lista{padding:0 16px 8px}
 .lem{padding:12px 16px;border-top:1px solid var(--bd)}.lem table td{border-top:1px solid var(--bd);vertical-align:middle}.lem td.a{width:1%;white-space:nowrap;text-align:right}.lem small{display:block;color:var(--mut)}
 a.b.wa{display:inline-block;background:#1b8f4c;color:#fff;border-radius:9px;padding:7px 14px;text-decoration:none;font-size:13px;font-weight:600}
@@ -157,7 +158,7 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 </head>
 <body>
 <header class="top">
-  <div class="top-in"><div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/></svg></span><div><h1>Vida e Ministério</h1><p id="cong">Carregando…</p></div></div></div>
+  <div class="top-in"><div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/></svg></span><div><h1>Vida e Ministério</h1><p id="cong">Carregando…</p></div></div><button class="b" id="bHist" hidden title="Desfazer as últimas alterações (até 50)" style="margin-left:auto;flex:none">↶ Desfazer</button></div>
   <nav id="tabs" aria-label="Seções">
     <button data-v="prog" class="on"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg><span class="lg">Programação</span><span class="sh">Programa</span></button>
     <button data-v="cad"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4c2 .8 3 2.7 3 5.6"/></svg><span class="lg">Cadastros</span><span class="sh">Cadastros</span></button>
@@ -177,6 +178,7 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="busy"><div><span class="spin"></span><span id="busyTxt">Aguarde…</span></div></div>
+<dialog id="dlgHist"><div id="dlgHistBody"></div></dialog>
 <dialog id="dlg"><form method="dialog"><p><b>Colar vários nomes</b><br><span class="hint">Um nome por linha.</span></p><textarea id="dlgTxt" rows="10"></textarea><p style="text-align:right;margin-bottom:0"><button class="b sec" value="cancel">Cancelar</button> <button class="b primary" id="dlgOk" value="ok">Adicionar</button></p></form></dialog>
 
 <script src="config.js"></script>
@@ -469,7 +471,7 @@ function renderProg() {
   var est = S.estado, h = pageH('Programação', 'Semanas capturadas do wol.jw.org e designadas pelo rodízio.');
   h += '<div class="card toolbar">'
     + (S.papel !== 'presidente' ? '<div class="tb-row admin-only"><button class="b primary" id="bAtual">Atualizar do wol.jw.org e designar</button>'
-    + '<div class="btn-group"><button class="b sec" id="bGerar">Designar semanas novas</button><button class="b sec" id="bRegerar">Regerar designações futuras</button></div></div>'
+    + '<div class="btn-group"><button class="b sec" id="bGerar">Designar semanas novas</button></div></div>'
     + '<div class="tb-sep admin-only"></div>' : '')
     + '<div class="tb-row"><label for="selBim">PDF da Apostila</label>'
     + '<select id="selBim">' + (est.bimestres.length ? est.bimestres.map(function (b) { return '<option value="' + esc(b.valor) + '"' + (b.valor === est.sugestaoBimestre ? ' selected' : '') + '>' + esc(b.rotulo) + ' (' + b.semanas + ' sem.)</option>'; }).join('') : '<option value="">Nenhum período designado</option>') + '</select>'
@@ -529,8 +531,6 @@ $('#v-prog').addEventListener('click', function (e) {
   if (id === 'bAtual') task('Capturando do wol.jw.org e designando…', function () { return call('apiAtualizarTudo'); }).then(function (r) {
     toast(r.capturadas + ' semana(s) capturada(s); ' + r.geradas + ' designada(s)' + (r.avisos ? ' (' + r.avisos + ' aviso(s))' : '') + (r.falhas.length ? '. Não capturadas: ' + r.falhas.length : '')); recarregar(); }, function () {});
   if (id === 'bGerar') task('Designando…', function () { return call('apiGerar', 'novas'); }).then(function (r) { toast(r.geradas ? r.geradas + ' semana(s) designada(s)' : 'Não há semanas novas para designar'); recarregar(); }, function () {});
-  if (id === 'bRegerar') { if (!confirm('Regerar as designações de todas as semanas futuras? Os nomes atuais podem mudar.')) return;
-    task('Regerando…', function () { return call('apiGerar', 'futuras'); }).then(function (r) { toast(r.geradas + ' semana(s) regerada(s)'); recarregar(); }, function () {}); }
   if (id === 'bPdf') { var v = $('#selBim').value; if (!v) return;
     task('Gerando o PDF…', function () { return call('apiPdf', v); }).then(baixarPdf, function () {}); }
 });
@@ -725,6 +725,27 @@ function acessoNegado(p) {
   };
   [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog') b.style.display = 'none'; });
 }
+/* Histórico / Desfazer (até 50 ações; só Presidente Geral e administrador) */
+function abrirHist() {
+  task('Abrindo o histórico…', function () { return call('apiHistorico'); }).then(function (d) {
+    var h = '<p style="margin-top:0"><b>Desfazer alterações</b><br><span class="hint">Guarda as últimas ' + d.max + ' ações. “Voltar até aqui” desfaz aquela ação e todas as mais novas.</span></p>';
+    h += d.itens.length ? '<ul class="hist">' + d.itens.map(function (i, k) {
+      return '<li><div class="tx"><b>' + esc(i.acao) + '</b><small>' + esc(i.quando) + ' · ' + esc(i.por) + '</small></div><button class="b ' + (k === 0 ? 'primary' : 'sec') + '" data-hist="' + (k + 1) + '" data-acao="' + esc(i.acao) + '">' + (k === 0 ? 'Desfazer' : 'Voltar até aqui') + '</button></li>';
+    }).join('') + '</ul>' : '<div class="empty">Nenhuma alteração registrada ainda.</div>';
+    h += '<p style="text-align:right;margin-bottom:0"><button class="b sec" id="histFechar">Fechar</button></p>';
+    $('#dlgHistBody').innerHTML = h; $('#dlgHist').showModal();
+  }, function () {});
+}
+document.addEventListener('click', function (e) {
+  var t = e.target; if (!t || !t.closest) return;
+  if (t.closest('#bHist')) { abrirHist(); return; }
+  if (t.id === 'histFechar') { $('#dlgHist').close(); return; }
+  var b = t.closest('[data-hist]'); if (!b) return;
+  var n = +b.dataset.hist;
+  if (!confirm(n === 1 ? 'Desfazer a última ação?\n\n«' + b.dataset.acao + '»' : 'Desfazer ' + n + ' ações, voltando até antes de:\n\n«' + b.dataset.acao + '»\n\nAs mais novas também serão desfeitas.')) return;
+  $('#dlgHist').close();
+  task('Desfazendo…', function () { return call('apiDesfazer', n); }).then(function (r) { toast(r.desfeitas + ' ação(ões) desfeita(s)'); setTimeout(function () { location.reload(); }, 900); }, function () {});
+});
 function iniciar() {
   if (API_URL && !TOKEN) { acessoNegado(null); return; }
   call('apiPapel').then(function (p) {
@@ -736,6 +757,7 @@ function iniciar() {
       [].forEach.call(document.querySelectorAll('#tabs button'), function (b) { if (b.dataset.v !== 'prog' && b.parentNode) b.parentNode.removeChild(b); });
       ['cad', 'ind', 'vis', 'evt', 'cfg'].forEach(function (v) { var e = $('#v-' + v); if (e && e.parentNode) e.parentNode.removeChild(e); });
     }
+    if (p.papel === 'admin' || p.papel === 'geral') { var bh = $('#bHist'); if (bh) bh.hidden = false; }
     carregarProg();
   }, function () { carregarProg(); });
 }
