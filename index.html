@@ -376,10 +376,11 @@ function renderVisita(k) {
 /* ---------------- semana com designações manuais ---------------- */
 function renderManualBar(k, s) {
   return '<div class="man-bar"><label class="switch"><input type="checkbox" data-man="' + esc(k) + '"' + (s.manual ? ' checked' : '') + '><span class="trk"></span><span>Designações manuais</span></label>'
-    + '<span class="hint">' + (s.manual ? 'Rodízio automático desligado nesta semana. Os nomes escolhidos entram no histórico e valem para o rodízio das semanas seguintes.' : 'Ligue para escolher os nomes à mão (por exemplo, quando já há uma lista pronta). O rodízio automático deixa de mexer nesta semana.') + '</span></div>';
+    + '<span class="hint">' + (s.manual ? 'Rodízio automático desligado nesta semana: use Trocar só nas partes que quiser (aparecem até 5 nomes ideais pelo rodízio). Quem sai volta a ficar disponível; os nomes entram no histórico.' : 'Ligue para trocar nomes à mão: os nomes já designados ficam e você altera só os que quiser (ou escolhe tudo, se a semana ainda não foi designada). O rodízio automático deixa de mexer nesta semana.') + '</span></div>';
 }
 function selMan(k, slot, campo, atual, opcoes, rotulo) {
   if (S.papel === 'presidente') return atual ? '<span>' + esc(atual) + '</span> ' : '';
+  if (atual) return '<span class="mn"><b>' + esc(atual) + '</b> <small class="hint">' + rotulo + '</small> <button class="b sec" data-mtroca="' + esc(k) + '|' + esc(slot) + '|' + campo + '">Trocar</button></span> ';
   var op = opcoes.slice(); if (atual && op.indexOf(atual) < 0) op.unshift(atual);
   return '<select data-k="' + esc(k) + '" data-ms="' + esc(slot) + '" data-vc="' + campo + '"><option value="">— ' + rotulo + ' —</option>'
     + op.map(function (n) { return '<option value="' + esc(n) + '"' + (n === atual ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select>';
@@ -399,7 +400,25 @@ function renderManual(k) {
     } else nome = (r.rot ? esc(r.rot) + ' ' : '') + (r.nome && r.nome.indexOf('___') < 0 ? esc(r.nome) : '');
     h += '<tr class="pr"><td class="t">' + (r.h != null ? hm(r.h) : '') + '</td><td>' + (r.num ? '<b>' + esc(r.num) + '. ' : '<b>') + esc(r.tx) + '</b>' + (r.min !== '' && r.min != null ? ' <span style="color:var(--mut)">(' + esc(r.min) + ' min)</span>' : '') + '</td><td class="n">' + nome + '</td></tr>';
   });
-  return h + '</table>';
+  h += '</table>';
+  if (d.msub) h += renderMSub(k);
+  return h;
+}
+function renderMSub(k) {
+  var s = S.sem[k].msub, d = s.dados;
+  var btn = function (x) { return '<button class="b sec" data-msok="' + esc(x.nome) + '">' + esc(x.nome) + '<small>' + (x.compensacao ? esc(d.atual) + ' assume em ' + esc(x.compensacao.data) + ': ' + esc(x.compensacao.parte) : 'sem designação futura para trocar') + '</small></button>'; };
+  var h = '<div class="sub-box"><b>Quem pode ficar no lugar de ' + esc(d.atual) + ' (' + esc(d.parte) + ')?</b> <small class="hint">Os melhores nomes pelo rodízio, até 5. ' + esc(d.atual) + ' volta a ficar disponível para as próximas designações.</small>';
+  h += d.sugestoes.length ? '<div class="opts">' + d.sugestoes.map(btn).join('') + '</div>' : '<p class="hint">Ninguém apto e disponível para esta função nesta semana.</p>';
+  if (d.todos.length) h += '<select data-msel="1"><option value="">Ver outros aptos…</option>' + d.todos.map(function (x) { return '<option value="' + esc(x.nome) + '">' + esc(x.nome) + (x.compensacao ? '' : ' (sem troca futura)') + '</option>'; }).join('') + '</select>';
+  return h + ' <button class="b sec" data-msx="1">Cancelar</button></div>';
+}
+function msubstituir(k, nome) {
+  var s = S.sem[k].msub, d = s.dados, x = d.sugestoes.concat(d.todos).filter(function (y) { return y.nome === nome; })[0];
+  var msg = nome + ' passa a fazer "' + d.parte + '" no lugar de ' + d.atual + '.' + (x && x.compensacao ? '\n' + d.atual + ' assume, em ' + x.compensacao.data + ', a parte "' + x.compensacao.parte + '" de ' + nome + '.' : '') + '\n' + d.atual + ' volta à lista de disponíveis. As demais partes não mudam.\n\nConfirmar?';
+  if (!confirm(msg)) return;
+  task('Trocando…', function () { return call('apiSubstituir', k, s.slot, s.campo, nome); }).then(function (r) {
+    toast(r.novo + ' no lugar de ' + r.atual + (r.compensacao ? '; ' + r.atual + ' assume ' + r.compensacao.data + '.' : '.')); S.envAuto = { k: k, nome: r.novo }; S.env = {}; S.sem = {}; S.lem = {}; S.abertas[k] = true; carregarProg();
+  }, function () {});
 }
 function carregarVis() { return call('apiVisitaLer').then(function (d) { S.vis = d; renderVis(); }, function (e) { toast(e.message, true); }); }
 function renderVis() {
@@ -520,6 +539,11 @@ $('#v-prog').addEventListener('click', function (e) {
 $('#v-prog').addEventListener('click', function (e) {
   var hd = e.target.closest('.wk-h');
   if (hd) { var w = hd.parentNode; w.classList.toggle('open'); S.abertas[w.dataset.k] = w.classList.contains('open'); if (S.abertas[w.dataset.k]) abrirSemana(w.dataset.k); return; }
+  var mtr = e.target.dataset && e.target.dataset.mtroca;
+  if (mtr) { var mp = mtr.split('|'), mk = mp[0]; call('apiSubstitutos', mk, mp[1], mp[2]).then(function (r) { S.sem[mk].msub = { slot: mp[1], campo: mp[2], dados: r }; preencherSemana(mk); }, function (er) { toast(er.message, true); }); return; }
+  var mso = e.target.dataset && e.target.dataset.msok;
+  if (mso) { msubstituir(e.target.closest('.wk-b').id.replace('wb-', ''), mso); return; }
+  if (e.target.dataset && e.target.dataset.msx) { var mx = e.target.closest('.wk-b').id.replace('wb-', ''); delete S.sem[mx].msub; preencherSemana(mx); return; }
   var sb = e.target.dataset && e.target.dataset.sub;
   if (sb) { var pp = sb.split('|'), kk = pp[0]; call('apiSubstitutos', kk, pp[1], pp[2]).then(function (r) { S.lem[kk].sub = { slot: pp[1], campo: pp[2], dados: r }; $('#lem-' + kk).innerHTML = renderLem(kk); }, function (er) { toast(er.message, true); }); return; }
   var sk = e.target.dataset && e.target.dataset.subok;
@@ -545,13 +569,14 @@ function baixarPdf(r) {
   toast('PDF gerado (' + r.semanas + ' semanas). O download começou.');
 }
 $('#v-prog').addEventListener('change', function (e) {
+  if (e.target.dataset && e.target.dataset.msel) { if (e.target.value) msubstituir(e.target.closest('.wk-b').id.replace('wb-', ''), e.target.value); return; }
   if (e.target.dataset && e.target.dataset.subsel) { if (e.target.value) substituir(e.target.closest('.lem').id.replace('lem-', ''), e.target.value); return; }
   var mt = e.target.dataset && e.target.dataset.man;
   if (mt) {
     var lig = e.target.checked, sm = achar(mt);
-    var msg = lig ? (sm && sm.designada ? 'Ligar o modo manual? As designações atuais desta semana serão apagadas e você escolherá todos os nomes à mão.' : '') : 'Desligar o modo manual? Os nomes escolhidos nesta semana serão apagados e ela volta ao rodízio automático.';
+    var msg = lig ? (sm && sm.designada ? 'Ligar o modo manual? Os nomes atuais desta semana ficam como estão, e você troca só os que quiser. O rodízio automático deixa de mexer nesta semana.' : '') : 'Desligar o modo manual? Os nomes escolhidos nesta semana serão apagados e ela volta ao rodízio automático.';
     if (msg && !confirm(msg)) { e.target.checked = !lig; return; }
-    task(lig ? 'Ligando o modo manual…' : 'Desligando o modo manual…', function () { return call(lig ? 'apiManualLigar' : 'apiManualDesligar', mt); }).then(function () { S.abertas[mt] = true; toast(lig ? 'Modo manual ligado: escolha os nomes nas listas.' : 'Modo manual desligado.'); recarregar(); }, function () { e.target.checked = !lig; });
+    task(lig ? 'Ligando o modo manual…' : 'Desligando o modo manual…', function () { return call(lig ? 'apiManualLigar' : 'apiManualDesligar', mt); }).then(function () { S.abertas[mt] = true; toast(lig ? 'Modo manual ligado: os nomes atuais ficaram; troque só os que quiser.' : 'Modo manual desligado.'); recarregar(); }, function () { e.target.checked = !lig; });
     return;
   }
   var ms = e.target.dataset && e.target.dataset.ms;
