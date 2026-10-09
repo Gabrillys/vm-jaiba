@@ -480,7 +480,8 @@ function renderApostilas() {
   if (novas.length) h += '<div class="nl" style="border:0;border-radius:10px;margin-top:12px"><b>Nova apostila disponível no wol.jw.org: ' + novas.map(function (i) { return esc(i.rotulo); }).join(', ') + '</b><button class="b sec" id="bApDisp">Dispensar aviso</button></div>';
   h += '<div class="bar"><button class="b sec" id="bApVer">Verificar agora</button>'
     + '<span class="hint" style="margin:0">' + (a.verificadoEm ? 'Última verificação: ' + esc(new Date(a.verificadoEm).toLocaleString('pt-BR')) : 'Ainda não verificado') + '</span>'
-    + (a.semanal === null ? '' : '<label style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="bApSem"' + (a.semanal ? ' checked' : '') + '> Verificar toda segunda-feira</label>') + '</div>';
+    + (a.semanal === null ? '' : '<label style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="bApSem"' + (a.semanal ? ' checked' : '') + '> Verificar todo dia (6h) e designar sozinho</label>') + '</div>';
+  if (a.auto) h += '<p class="hint">Última rotina automática: ' + esc(new Date(a.auto.quando).toLocaleString('pt-BR')) + ' — ' + a.auto.capturadas + ' semana(s) capturada(s), ' + a.auto.geradas + ' semana(s) designada(s)' + (a.auto.falhas && a.auto.falhas.length ? '; falhas: ' + esc(a.auto.falhas.join(' | ')) : '') + '.</p>';
   if (a.erro) h += '<p class="hint" style="color:var(--err)">Falha na última verificação automática: ' + esc(a.erro) + '</p>';
   if (!a.itens.length) h += '<p class="hint">Nenhuma apostila a partir do período atual. Clique em “Verificar agora”.</p>';
   else h += '<table>' + a.itens.map(function (i) {
@@ -554,7 +555,7 @@ $('#v-prog').addEventListener('click', function (e) {
   if (ad) { task('Designando por rodízio…', function () { return call('apiApostilaDesignar', ad); }).then(function (r) { toast(r.geradas + ' semana(s) designada(s)' + (r.avisos ? ' (' + r.avisos + ' aviso(s))' : '')); recarregar(); }, function () {}); return; }
   var id = e.target.id;
   if (id === 'bRetry') { carregarProg(); return; }
-  if (id === 'bApVer') { task('Pesquisando o wol.jw.org…', function () { return call('apiApostilasVerificar'); }).then(function () { toast('Verificação concluída'); recarregar(); }, function () {}); return; }
+  if (id === 'bApVer') { task('Pesquisando o wol.jw.org…', function () { return call('apiApostilasVerificar'); }).then(function (r) { toast('Verificação concluída' + (r && r.capturadas ? ': ' + r.capturadas + ' semana(s) capturada(s), ' + r.geradas + ' designada(s)' : '')); recarregar(); }, function () {}); return; }
   if (id === 'bApDisp') { call('apiDispensarNovas').then(function () { recarregar(); }, function (er) { toast(er.message, true); }); return; }
   if (id === 'bAtual') task('Capturando do wol.jw.org e designando…', function () { return call('apiAtualizarTudo'); }).then(function (r) {
     toast(r.capturadas + ' semana(s) capturada(s); ' + r.geradas + ' designada(s)' + (r.avisos ? ' (' + r.avisos + ' aviso(s))' : '') + (r.falhas.length ? '. Não capturadas: ' + r.falhas.length : '')); recarregar(); }, function () {});
@@ -598,7 +599,7 @@ $('#v-prog').addEventListener('change', function (e) {
     call('apiVisitaDados', kd, dados).then(function (r) { toast('Salvo'); delete S.lem[kd]; if (vd === 'dia') { recarregar(); return; } buscarSemana(kd).then(function (d2) { S.sem[kd] = d2; preencherSemana(kd); }, function () {}); }, function (er) { toast(er.message, true); });
     return;
   }
-  if (e.target.id === 'bApSem') { var on = e.target.checked; task('Atualizando…', function () { return call('apiVerificacaoSemanal', on); }).then(function () { toast(on ? 'Verificação semanal ativada (segundas, 6h)' : 'Verificação semanal desativada'); carregarProg(); }, function () { carregarProg(); }); return; }
+  if (e.target.id === 'bApSem') { var on = e.target.checked; task('Atualizando…', function () { return call('apiVerificacaoSemanal', on); }).then(function () { toast(on ? 'Verificação diária ativada (6h): apostila nova é capturada e designada sozinha' : 'Verificação automática desativada'); carregarProg(); }, function () { carregarProg(); }); return; }
   var k = e.target.dataset && e.target.dataset.tema; if (!k) return;
   var st = $('#st-' + k); st.textContent = 'salvando…';
   call('apiSalvarTema', k, e.target.value).then(function (r) {
