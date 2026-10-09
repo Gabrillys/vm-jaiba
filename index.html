@@ -572,7 +572,7 @@ $('#v-prog').addEventListener('change', function (e) {
   var mt = e.target.dataset && e.target.dataset.man;
   if (mt) {
     var lig = e.target.checked, sm = achar(mt);
-    var msg = lig ? (sm && sm.designada ? 'Ligar o modo manual? Os nomes atuais desta semana ficam como estão, e você troca só os que quiser. O rodízio automático deixa de mexer nesta semana.' : '') : 'Desligar o modo manual? Os nomes escolhidos nesta semana serão apagados e ela volta ao rodízio automático.';
+    var msg = lig ? (sm && sm.designada ? 'Ligar o modo manual? Os nomes atuais desta semana ficam como estão, e você troca só os que quiser. O rodízio automático deixa de mexer nesta semana.' : '') : 'Voltar ao rodízio automático? Os nomes desta semana são mantidos; só partes em branco, se houver, serão preenchidas pelo rodízio. Você pode ligar o modo manual de novo quando quiser.';
     if (msg && !confirm(msg)) { e.target.checked = !lig; return; }
     task(lig ? 'Ligando o modo manual…' : 'Desligando o modo manual…', function () { return call(lig ? 'apiManualLigar' : 'apiManualDesligar', mt); }).then(function () { S.abertas[mt] = true; toast(lig ? 'Modo manual ligado: os nomes atuais ficaram; troque só os que quiser.' : 'Modo manual desligado.'); recarregar(); }, function () { e.target.checked = !lig; });
     return;
