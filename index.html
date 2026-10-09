@@ -386,8 +386,8 @@ function selMan(k, slot, campo, atual, opcoes, rotulo) {
     + op.map(function (n) { return '<option value="' + esc(n) + '"' + (n === atual ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select>';
 }
 function renderManual(k) {
-  var d = S.sem[k], m = d.modelo, h = '<table>';
-  h += '<tr class="pr abre"><td colspan="2"><b>' + esc(m.cab.periodo) + ' | ' + esc(m.cab.leitura) + '</b></td><td class="n">Presidente:' + selMan(k, m.cab.presSlot, 'titular', d.slots[m.cab.presSlot].titular, d.slots[m.cab.presSlot].opcoes, 'selecionar') + '</td></tr>';
+  var d = S.sem[k], m = d.modelo, h = '<table>', caixa = function (slots) { return d.msub && slots.indexOf(d.msub.slot) >= 0 ? '<tr><td colspan="3">' + renderMSub(k) + '</td></tr>' : ''; };
+  h += '<tr class="pr abre"><td colspan="2"><b>' + esc(m.cab.periodo) + ' | ' + esc(m.cab.leitura) + '</b></td><td class="n">Presidente:' + selMan(k, m.cab.presSlot, 'titular', d.slots[m.cab.presSlot].titular, d.slots[m.cab.presSlot].opcoes, 'selecionar') + '</td></tr>' + caixa([m.cab.presSlot]);
   m.rows.forEach(function (r) {
     if (r.k === 'barra') { h += '<tr class="pr sec ' + (r.sec === 'T' ? 'tes' : r.sec === 'M' ? 'min' : r.sec === 'N' ? 'nvc' : 'tes') + '"><td></td><td colspan="2">' + esc(r.tx) + '</td></tr>'; return; }
     var nome = '';
@@ -398,11 +398,9 @@ function renderManual(k) {
         + (lei ? selMan(k, r.slot.replace(/_DIR$/, '_LEI'), 'titular', lei.titular, lei.opcoes, 'leitor') : '')
         + (sl.aviso ? '<span class="av">⚠ ' + esc(sl.aviso) + '</span>' : '');
     } else nome = (r.rot ? esc(r.rot) + ' ' : '') + (r.nome && r.nome.indexOf('___') < 0 ? esc(r.nome) : '');
-    h += '<tr class="pr"><td class="t">' + (r.h != null ? hm(r.h) : '') + '</td><td>' + (r.num ? '<b>' + esc(r.num) + '. ' : '<b>') + esc(r.tx) + '</b>' + (r.min !== '' && r.min != null ? ' <span style="color:var(--mut)">(' + esc(r.min) + ' min)</span>' : '') + '</td><td class="n">' + nome + '</td></tr>';
+    h += '<tr class="pr"><td class="t">' + (r.h != null ? hm(r.h) : '') + '</td><td>' + (r.num ? '<b>' + esc(r.num) + '. ' : '<b>') + esc(r.tx) + '</b>' + (r.min !== '' && r.min != null ? ' <span style="color:var(--mut)">(' + esc(r.min) + ' min)</span>' : '') + '</td><td class="n">' + nome + '</td></tr>' + (r.slot ? caixa([r.slot, r.slot.replace(/_DIR$/, '_LEI')]) : '');
   });
-  h += '</table>';
-  if (d.msub) h += renderMSub(k);
-  return h;
+  return h + '</table>';
 }
 function renderMSub(k) {
   var s = S.sem[k].msub, d = s.dados;
@@ -540,7 +538,7 @@ $('#v-prog').addEventListener('click', function (e) {
   var hd = e.target.closest('.wk-h');
   if (hd) { var w = hd.parentNode; w.classList.toggle('open'); S.abertas[w.dataset.k] = w.classList.contains('open'); if (S.abertas[w.dataset.k]) abrirSemana(w.dataset.k); return; }
   var mtr = e.target.dataset && e.target.dataset.mtroca;
-  if (mtr) { var mp = mtr.split('|'), mk = mp[0]; call('apiSubstitutos', mk, mp[1], mp[2]).then(function (r) { S.sem[mk].msub = { slot: mp[1], campo: mp[2], dados: r }; preencherSemana(mk); }, function (er) { toast(er.message, true); }); return; }
+  if (mtr) { var mp = mtr.split('|'), mk = mp[0]; task('Buscando os melhores nomes…', function () { return call('apiSubstitutos', mk, mp[1], mp[2]); }).then(function (r) { S.sem[mk].msub = { slot: mp[1], campo: mp[2], dados: r }; preencherSemana(mk); var cx = document.querySelector('#wb-' + mk + ' .sub-box'); if (cx && cx.scrollIntoView) cx.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, function () {}); return; }
   var mso = e.target.dataset && e.target.dataset.msok;
   if (mso) { msubstituir(e.target.closest('.wk-b').id.replace('wb-', ''), mso); return; }
   if (e.target.dataset && e.target.dataset.msx) { var mx = e.target.closest('.wk-b').id.replace('wb-', ''); delete S.sem[mx].msub; preencherSemana(mx); return; }
