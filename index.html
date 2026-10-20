@@ -455,7 +455,12 @@ function renderEvt() {
 $('#v-evt').addEventListener('click', function (e) {
   if (e.target.id === 'eAdd') { S.evt.registros.push({ data: '', tipo: 'Assembleia', semana: '' }); renderEvt(); }
   if (e.target.dataset && e.target.dataset.edel != null) { S.evt.registros.splice(+e.target.dataset.edel, 1); renderEvt(); }
-  if (e.target.id === 'eSave') task('Salvando…', function () { return call('apiEventoSalvar', S.evt.registros); }).then(function (r) { toast(r.salvos + ' evento(s) salvo(s)' + (r.novas ? '. As designações automáticas dessas semanas foram retiradas.' : '')); S.sem = {}; S.lem = {}; carregarEvt(); S.estado = null; }, function () {});
+  if (e.target.id === 'eSave') task('Salvando…', function () { return call('apiEventoSalvar', S.evt.registros).then(function (r0) {
+    if (!r0 || !r0.precisaConfirmar) return r0;
+    var lista = r0.removidos.map(function (x) { return String(x.data).split('-').reverse().join('/') + ' (' + x.tipo + ')'; }).join(', ');
+    if (!confirm('Atenção: esta gravação vai REMOVER ' + r0.removidos.length + ' evento(s) já cadastrado(s): ' + lista + '.\n\nSe foi sem querer, toque em Cancelar: nada será gravado.\nConfirmar a remoção?')) return Promise.reject(new Error('Gravação cancelada: nenhum evento foi removido.'));
+    return call('apiEventoSalvar', S.evt.registros, true);
+  }); }).then(function (r) { toast(r.salvos + ' evento(s) salvo(s)' + (r.novas ? '. As designações automáticas dessas semanas foram retiradas.' : '')); S.sem = {}; S.lem = {}; carregarEvt(); S.estado = null; }, function () {});
 });
 $('#v-evt').addEventListener('input', function (e) { var t = e.target; if (t.dataset && t.dataset.i != null) S.evt.registros[+t.dataset.i][t.dataset.c] = t.value; });
 function renderSubBox(k) {
@@ -680,6 +685,7 @@ $('#v-ind').addEventListener('input', function (e) { var t = e.target; if (t.dat
 var CFG_ROT = [['Congregação', 'Congregação', 'text'], ['Dia da reunião', 'Dia da reunião', 'dia'], ['Hora de início', 'Hora de início', 'time'], ['Semanas a capturar', 'Semanas a capturar do wol.jw.org', 'number'],
   ['Abertura (cântico, oração e comentários iniciais) — min', 'Abertura: cântico, oração e comentários (min)', 'number'], ['Cântico do meio — min', 'Cântico do meio (min)', 'number'], ['Cântico final e oração — min', 'Cântico final e oração (min)', 'number'], ['Experientes: designações a mais (%)', 'Experientes: designações a mais (%) no Faça Seu Melhor', 'margem'], ['Folga mínima dos irmãos por mês (semanas)', 'Folga mínima dos anciãos e servos por mês (semanas sem designação, 0 a 3)', 'folga'],
   ['Mensagem do lembrete (WhatsApp)', 'Mensagem do lembrete (WhatsApp). Campos: {nome} (primeiro nome), {nome_completo}, {parte}, {acompanhante}, {data}, {periodo}', 'texto'],
+  ['Sequência de presidentes', 'Sequência de presidentes da reunião (nomes separados por vírgula, na ordem). O presidente de cada semana é o próximo da lista depois do da semana anterior.', 'texto'],
   ['Salas adicionais', 'Salas adicionais do Salão do Reino', 'salas'],
   ['Mensagem da designação (WhatsApp)', 'Mensagem da designação (WhatsApp). Campos: {nome}, {parte}, {acompanhante}, {data}, {local}, {periodo}', 'texto'],
   ['Endereço do web app', 'Endereço do site do sistema (usado nos links de acesso)', 'text'],
@@ -688,7 +694,7 @@ var CFG_ROT = [['Congregação', 'Congregação', 'text'], ['Dia da reunião', '
 function carregarCfg() { return call('apiConfigLer').then(function (c) { S.cfg = c; renderCfg(); }, function (e) { toast(e.message, true); }); }
 var CFG_GRUPOS = [['Reunião', 'Dados da congregação e quando a reunião acontece.', ['Congregação', 'Dia da reunião', 'Hora de início', 'Semanas a capturar']],
   ['Horários da programação', 'Tempos usados na tela e no PDF.', ['Abertura (cântico, oração e comentários iniciais) — min', 'Cântico do meio — min', 'Cântico final e oração — min']],
-  ['Rodízio das designações', 'Como o sistema equilibra a distribuição das partes.', ['Experientes: designações a mais (%)', 'Folga mínima dos irmãos por mês (semanas)']],
+  ['Rodízio das designações', 'Como o sistema equilibra a distribuição das partes.', ['Sequência de presidentes', 'Experientes: designações a mais (%)', 'Folga mínima dos irmãos por mês (semanas)']],
   ['Lembretes pelo WhatsApp', 'Mensagem pronta que abre no WhatsApp ao clicar em Lembrete.', ['Mensagem do lembrete (WhatsApp)']],
   ['Enviar designações (formulário S-89-T)', 'Vale para a Leitura da Bíblia e para as partes de Faça Seu Melhor no Ministério. Se o Salão do Reino tiver mais salas, adicione-as aqui: aparecerá o presidente de cada sala e a escolha da sala de cada designado.', ['Salas adicionais', 'Mensagem da designação (WhatsApp)']],
   ['Acesso ao sistema','Todos entram pelo link com token, sem precisar de conta Google: o administrador pelo link de administrador (função gerarTokenAdministrador no editor), os demais pelos links abaixo: o Presidente Geral edita tudo; o presidente de cada semana só vê os nomes, gera o PDF e envia lembretes, do domingo anterior até o dia da reunião.', ['Endereço do web app', 'Controle de acesso por e-mail', 'Administradores (e-mails)']]];
