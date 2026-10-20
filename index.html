@@ -93,6 +93,7 @@ td,th{padding:7px 12px;vertical-align:top;text-align:left}
 .lem{padding:12px 16px;border-top:1px solid var(--bd)}.lem table td{border-top:1px solid var(--bd);vertical-align:middle}.lem td.a{width:1%;white-space:nowrap;text-align:right}.lem small{display:block;color:var(--mut)}
 a.b.wa{display:inline-block;background:#1b8f4c;color:#fff;border-radius:9px;padding:7px 14px;text-decoration:none;font-size:13px;font-weight:600}
 a.b.wa:hover{filter:brightness(1.1)}
+.waapp{display:inline-flex;gap:6px;align-items:center;font-size:13px;font-weight:600;white-space:nowrap}.waapp select{padding:5px 8px;border-radius:8px}
 .vis-box{border-bottom:1px solid var(--bd);background:var(--surface2)}.vis-box .hint{padding:0 16px;margin:0 0 10px}
 .man-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--surface2)}
 .man-bar .hint{margin:0;flex:1 1 260px}
@@ -304,7 +305,7 @@ function carregarEnv(k) {
   call('apiDesignacoesEnvio', k).then(function (d) { S.env[k] = d; var e2 = $('#env-' + k); if (e2) e2.innerHTML = renderEnv(k); }, function (er) { if (el) el.innerHTML = '<div class="empty">' + esc(er.message) + '</div>'; });
 }
 function renderEnv(k) {
-  var d = S.env[k], nova = S.envAuto && S.envAuto.k === k ? S.envAuto.nome : '', h = '<div class="bar" style="margin:0 0 8px"><b>Enviar designações (formulário S-89-T)</b><span class="hint" style="margin:0">Leitura da Bíblia e Faça Seu Melhor no Ministério. Envie o formulário como <b>imagem</b> (abre no celular de qualquer pessoa) junto com a mensagem pelo WhatsApp.</span></div>';
+  var d = S.env[k], nova = S.envAuto && S.envAuto.k === k ? S.envAuto.nome : '', h = '<div class="bar" style="margin:0 0 8px"><b>Enviar designações (formulário S-89-T)</b><span class="hint" style="margin:0">Leitura da Bíblia e Faça Seu Melhor no Ministério. Envie o formulário como <b>imagem</b> (abre no celular de qualquer pessoa) junto com a mensagem pelo WhatsApp.</span>' + seletorWa() + '</div>';
   if (d.salas.length) {
     h += '<div class="form" style="padding:4px 0">' + d.salas.map(function (s) {
       return '<div><label>Presidente da ' + (s === 'B' ? 'Sala B' : 'Sala C') + '</label><select data-envpres="' + esc(k + '|' + s) + '"><option value="">— selecionar —</option>' + d.opcoesPres.map(function (n) { return '<option' + (d.presSala[s] === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>';
@@ -314,7 +315,7 @@ function renderEnv(k) {
   h += '<table>' + d.itens.map(function (i) {
     var det = i.numero + (i.par ? (i.campo === 'titular' ? ' · com ' : ' · acompanhando ') + i.par : '');
     var sala = d.salas.length ? '<select data-envsala="' + esc(k + '|' + i.slot) + '"><option value=""' + (i.sala === '' ? ' selected' : '') + '>Salão principal</option>' + d.salas.map(function (s) { return '<option value="' + s + '"' + (i.sala === s ? ' selected' : '') + '>Sala ' + s + '</option>'; }).join('') + '</select> ' : '';
-    var wa = i.telefone ? '<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/' + i.telefone + '?text=' + esc(encodeURIComponent(i.texto)) + '">Mensagem</a>' : '<span class="tag err" title="Cadastre o telefone na aba Cadastros">sem telefone</span>';
+    var wa = i.telefone ? aWa(i.telefone, i.texto, 'Mensagem', 'b wa') : '<span class="tag err" title="Cadastre o telefone na aba Cadastros">sem telefone</span>';
     return '<tr><td><b>' + esc(i.nome) + '</b>' + (nova && norm0(i.nome) === norm0(nova) ? ' <span class="tag ok">substituto: gere o formulário novo</span>' : '') + '<small>' + esc(det) + ' · ' + esc(i.data) + '</small></td><td class="a">' + sala + wa + ' <button class="b sec" data-envimg="' + esc(k + '|' + i.slot + '|' + i.campo) + '">Formulário (imagem)</button></td></tr>';
   }).join('') + '</table>';
   h += '<p style="margin:8px 0 0"><button class="b sec" data-envall="' + esc(k) + '">Formulários da semana (imagens)</button></p>';
@@ -416,6 +417,37 @@ $('#imgDlg').addEventListener('click', function (e) {
   if (d.imgdlall) { S.imgs.forEach(function (x, n) { setTimeout(function () { var a = document.createElement('a'); a.href = x.url; a.download = x.nome; document.body.appendChild(a); a.click(); a.remove(); }, n * 400); }); toast(S.imgs.length + ' imagens baixadas'); }
 });
 $('#imgDlg').addEventListener('close', fecharImgs);
+/* ---------- Qual WhatsApp abre (Android com WhatsApp e WhatsApp Business) ----------
+   Os links wa.me são disputados pelos dois aplicativos e o Android escolhe sozinho. Com o link "intent" o sistema diz ao Android
+   QUAL aplicativo abrir (pacote com.whatsapp ou com.whatsapp.w4b). A escolha fica guardada em cada aparelho.
+   Fora do Android (iPhone, computador) continua o link wa.me normal. */
+var WA_APPS = [['', 'Padrão do celular'], ['com.whatsapp', 'WhatsApp'], ['com.whatsapp.w4b', 'WhatsApp Business']];
+function ehAndroid() { return /Android/i.test(navigator.userAgent || ''); }
+function waApp() { var v = ''; try { v = localStorage.getItem('vm_wa_app') || ''; } catch (e) { v = ''; } return WA_APPS.some(function (a) { return a[0] === v; }) ? v : ''; }
+function linkWa(tel, texto) {
+  var t = encodeURIComponent(texto || ''), web = 'https://wa.me/' + (tel || '') + '?text=' + t, pk = ehAndroid() ? waApp() : '';
+  if (!pk) return web;
+  return 'intent://send?' + (tel ? 'phone=' + tel + '&' : '') + 'text=' + t + '#Intent;scheme=whatsapp;package=' + pk + ';S.browser_fallback_url=' + encodeURIComponent(web) + ';end';
+}
+/* Botão (link direto) que abre o WhatsApp escolhido na conversa da pessoa, com a mensagem pronta. */
+function aWa(tel, texto, rotulo, cls, titulo) {
+  var href = linkWa(tel, texto), web = href.indexOf('https:') === 0;
+  return '<a class="' + (cls || 'b wa') + '"' + (web ? ' target="_blank" rel="noopener"' : '') + ' href="' + esc(href) + '"' + (titulo ? ' title="' + esc(titulo) + '"' : '') + '>' + esc(rotulo) + '</a>';
+}
+function seletorWa() {
+  if (!ehAndroid()) return '';
+  var v = waApp();
+  return '<label class="waapp">Abrir no <select data-waapp="1" aria-label="Qual WhatsApp abrir">' + WA_APPS.map(function (a) { return '<option value="' + a[0] + '"' + (a[0] === v ? ' selected' : '') + '>' + a[1] + '</option>'; }).join('') + '</select></label>';
+}
+document.addEventListener('change', function (e) {
+  if (!(e.target && e.target.dataset && e.target.dataset.waapp)) return;
+  try { localStorage.setItem('vm_wa_app', e.target.value); } catch (er) { /* sem armazenamento: vale só agora */ }
+  Object.keys(S.lem || {}).forEach(function (k) { var el = $('#lem-' + k); if (el && S.lem[k] && S.lem[k].itens) el.innerHTML = renderLem(k); });
+  Object.keys(S.env || {}).forEach(function (k) { var el = $('#env-' + k); if (el && S.env[k]) el.innerHTML = renderEnv(k); });
+  if (S.presAberto && $('#presBody')) carregarPres();
+  if ($('#tokBox') && S.tok) renderTok();
+  toast('Os botões abrem agora no ' + (WA_APPS.filter(function (a) { return a[0] === e.target.value; })[0] || WA_APPS[0])[1]);
+});
 function norm0(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
 function baixarB64(r) {
   var a = document.createElement('a'); a.href = 'data:application/pdf;base64,' + r.base64; a.download = r.nome; document.body.appendChild(a); a.click(); a.remove();
@@ -434,11 +466,11 @@ $('#v-prog').addEventListener('change', function (e) {
 });
 /* Lembretes: cada participante da semana com o botão que abre o WhatsApp dele com a mensagem pronta (revisar e enviar manualmente). */
 function renderLem(k) {
-  var d = S.lem[k], h = '<div class="bar" style="margin:0 0 8px"><b>Participantes: lembretes e substituições</b><span class="hint" style="margin:0">O WhatsApp abre com a mensagem pronta; revise e toque em enviar. Use Substituir quando alguém não puder comparecer.</span></div>';
+  var d = S.lem[k], h = '<div class="bar" style="margin:0 0 8px"><b>Participantes: lembretes e substituições</b><span class="hint" style="margin:0">O WhatsApp abre com a mensagem pronta; revise e toque em enviar. Use Substituir quando alguém não puder comparecer.</span>' + seletorWa() + '</div>';
   if (!d.itens.length) return h + '<div class="empty">Sem participantes designados nesta semana.</div>';
   h += '<table>' + d.itens.map(function (i) {
     var det = i.parte + (i.acompanhante ? (i.papel === 'titular' ? ' · com ' : ' · acompanhando ') + i.acompanhante : '');
-    var bt = i.telefone ? '<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/' + i.telefone + '?text=' + esc(encodeURIComponent(i.texto)) + '">Lembrete</a>' : '<span class="tag err" title="Cadastre o telefone na aba Cadastros, na linha do nome">sem telefone</span>';
+    var bt = i.telefone ? aWa(i.telefone, i.texto, 'Lembrete', 'b wa') : '<span class="tag err" title="Cadastre o telefone na aba Cadastros, na linha do nome">sem telefone</span>';
     var sb = d.substituivel ? ' <button class="b sec" data-sub="' + esc(k + '|' + i.slot + '|' + i.campo) + '">Substituir</button>' : '';
     var box = d.sub && d.sub.slot === i.slot && d.sub.campo === i.campo ? '<tr><td colspan="2">' + renderSubBox(k) + '</td></tr>' : '';
     return '<tr><td><b>' + esc(i.nome) + '</b><small>' + esc(det) + '</small></td><td class="a">' + bt + sb + '</td></tr>' + box;
@@ -626,10 +658,10 @@ function carregarPres() {
   var b = $('#presBody'); if (!b) return; b.innerHTML = '<div class="empty">Carregando…</div>';
   call('apiPresidentes').then(function (d) {
     var b2 = $('#presBody'); if (!b2) return;
-    b2.innerHTML = d.itens.length ? '<div class="lista">' + d.itens.map(function (i) {
+    b2.innerHTML = (d.itens.length && ehAndroid() ? '<div class="bar" style="margin:0 0 6px">' + seletorWa() + '</div>' : '') + (d.itens.length ? '<div class="lista">' + d.itens.map(function (i) {
       return '<div class="li"><div class="tx"><b>' + esc(i.nome) + '</b><small>' + esc(i.periodo) + ' · acesso de ' + esc(i.de) + ' a ' + esc(i.ate) + (i.vigente ? ' <span class="tag ok">agora</span>' : '') + '</small></div><div class="ac"><button class="b sec" data-prcopy="' + esc(i.nome) + '|' + esc(i.semana) + '" data-prlink="' + esc(i.link || '') + '">Copiar link</button>'
-        + (i.texto ? '<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(i.telefone || '') + '?text=' + esc(encodeURIComponent(i.texto)) + '"' + (i.telefone ? '' : ' title="Sem telefone no cadastro: o WhatsApp pede para escolher o contato"') + '>WhatsApp</a>' : '<button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button>') + '</div></div>';
-    }).join('') + '</div><div class="hint" style="padding:0 16px 12px">O link é um por pessoa e vale automaticamente apenas do domingo anterior até o dia da reunião de cada semana dela.</div>' : '<div class="empty">Nenhum presidente designado nas próximas semanas.</div>';
+        + (i.texto ? aWa(i.telefone || '', i.texto, 'WhatsApp', 'b wa', i.telefone ? '' : 'Sem telefone no cadastro: o WhatsApp pede para escolher o contato') : '<button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button>') + '</div></div>';
+    }).join('') + '</div><div class="hint" style="padding:0 16px 12px">O link é um por pessoa e vale automaticamente apenas do domingo anterior até o dia da reunião de cada semana dela.</div>' : '<div class="empty">Nenhum presidente designado nas próximas semanas.</div>');
   }, function (e) { var b3 = $('#presBody'); if (b3) b3.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
 $('#v-prog').addEventListener('toggle', function (e) { if (e.target.id === 'presBox') { S.presAberto = e.target.open; if (e.target.open) carregarPres(); } }, true);
@@ -640,7 +672,7 @@ $('#v-prog').addEventListener('click', function (e) {
   var pp = x.split('|');
   call('apiPresidenteLink', pp[0], pp[1]).then(function (r) {
     if (cp) { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.link).then(function () { toast('Link de ' + r.nome + ' copiado'); }, function () { prompt('Copie o link:', r.link); }); else prompt('Copie o link:', r.link); }
-    else window.open('https://wa.me/' + (r.telefone || '') + '?text=' + encodeURIComponent(r.texto), '_blank');
+    else window.open(linkWa(r.telefone || '', r.texto), '_blank');
   }, function (er) { toast(er.message, true); });
 });$('#v-prog').addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('wk-h')) { e.preventDefault(); e.target.click(); } });
 $('#v-prog').addEventListener('click', function (e) {
@@ -830,10 +862,10 @@ function renderTok() {
   h += '<div class="form"><div><label>Tipo de acesso</label><select id="tkTipo"><option value="geral">Presidente Geral (edita tudo)</option><option value="presidente">Presidente da semana (só vê, PDF e WhatsApp)</option></select></div>'
     + '<div><label id="tkLbl">Nome do Presidente Geral</label><input type="text" id="tkNome" list="tkNomes" placeholder="Nome"><datalist id="tkNomes">' + d.nomes.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></div></div>'
     + '<div class="actionbar"><button class="b primary" id="tkGerar">Gerar token</button></div>';
-  if (S.novoTok) h += '<div class="bar"><b>Token gerado para ' + esc(S.novoTok.nome) + '</b><span class="hint" style="margin:0">Copie e envie agora. Qualquer token antigo desta pessoa foi apagado.</span><input type="text" readonly id="tkLink" value="' + esc(S.novoTok.link) + '" onclick="this.select()"><button class="b primary" data-tkcopy="' + esc(S.novoTok.link) + '">Copiar link</button> <a class="b sec" target="_blank" rel="noopener" href="https://wa.me/?text=' + esc(encodeURIComponent('Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + S.novoTok.link)) + '">Enviar por WhatsApp</a></div>';
+  if (S.novoTok) h += '<div class="bar"><b>Token gerado para ' + esc(S.novoTok.nome) + '</b><span class="hint" style="margin:0">Copie e envie agora. Qualquer token antigo desta pessoa foi apagado.</span><input type="text" readonly id="tkLink" value="' + esc(S.novoTok.link) + '" onclick="this.select()"><button class="b primary" data-tkcopy="' + esc(S.novoTok.link) + '">Copiar link</button> ' + aWa('', 'Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + S.novoTok.link, 'Enviar por WhatsApp', 'b sec') + '</div>';
   h += d.tokens.length ? '<div class="lista">' + d.tokens.map(function (t) {
     var link = (d.url || '') + '?t=' + t.token;
-    return '<div class="li"><div class="tx"><b>' + esc(t.nome) + '</b><small>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + ' · criado em ' + esc(t.criado) + '</small></div><div class="ac"><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button><a class="b sec" target="_blank" rel="noopener" href="https://wa.me/?text=' + esc(encodeURIComponent('Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + link)) + '">WhatsApp</a><button class="x" data-tkdel="' + esc(t.id) + '" title="Revogar">✕</button></div></div>';
+    return '<div class="li"><div class="tx"><b>' + esc(t.nome) + '</b><small>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + ' · criado em ' + esc(t.criado) + '</small></div><div class="ac"><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button>' + aWa('', 'Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + link, 'WhatsApp', 'b sec') + '<button class="x" data-tkdel="' + esc(t.id) + '" title="Revogar">✕</button></div></div>';
   }).join('') + '</div>' : '<div class="empty">Nenhum token gerado.</div>';
   b.innerHTML = h;
 }
@@ -844,7 +876,7 @@ $('#v-cfg').addEventListener('click', function (e) {
   if (t.id === 'tkGerar') task('Gerando…', function () { return call('apiTokenGerar', $('#tkTipo').value, $('#tkNome').value); }).then(function (r) { S.novoTok = { nome: r.token.nome, link: (r.url || '') + '?t=' + r.token.token }; toast('Token gerado'); carregarTok(); }, function () {});
   if (t.dataset && t.dataset.tkdel && confirm('Revogar este token? Quem usa o link perde o acesso.')) task('Revogando…', function () { return call('apiTokenRevogar', t.dataset.tkdel); }).then(function () { toast('Token revogado'); carregarTok(); }, function () {});
   if (t.dataset && t.dataset.tkcopy) { var l = t.dataset.tkcopy; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(l).then(function () { toast('Link copiado'); }, function () { prompt('Copie o link:', l); }); else prompt('Copie o link:', l); }
-  if (t.dataset && t.dataset.tkzap) window.open('https://wa.me/?text=' + encodeURIComponent('Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + t.dataset.tkzap), '_blank');
+  if (t.dataset && t.dataset.tkzap) window.open(linkWa('', 'Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + t.dataset.tkzap), '_blank');
 });
 $('#v-cfg').addEventListener('input', function (e) { if (e.target.dataset && e.target.dataset.k) S.cfg[e.target.dataset.k] = e.target.value; });
 $('#v-cfg').addEventListener('click', function (e) {
