@@ -44,6 +44,9 @@ button.b.primary{background:var(--accent);color:var(--accent-tx)}
 button.b.sec{background:var(--surface);color:var(--brand2);border-color:var(--bd2)}
 @media (prefers-color-scheme:dark){button.b.sec{color:#cfe0ec}}
 button.b.sec:hover:not(:disabled){background:var(--surface2);filter:none;border-color:var(--accent)}
+a.b.sec{display:inline-block;background:var(--surface);color:var(--brand2);border:1px solid var(--bd2);border-radius:9px;padding:9px 15px;font-weight:600;line-height:1.2;text-decoration:none;cursor:pointer}
+a.b.sec:hover{background:var(--surface2);border-color:var(--accent)}
+@media (prefers-color-scheme:dark){a.b.sec{color:#cfe0ec}}
 button.b:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,nav#tabs button:focus-visible,.wk-h:focus-visible,.chip:focus-visible,summary:focus-visible{outline:none;box-shadow:var(--ring)}
 button.b:disabled{opacity:.5;cursor:not-allowed}
 .btn-group{display:inline-flex}.btn-group .b{border-radius:0}.btn-group .b:first-child{border-radius:9px 0 0 9px}.btn-group .b:last-child{border-radius:0 9px 9px 0;border-left-width:0}
@@ -338,7 +341,7 @@ function s89Layout(f, medir) {
       if (v) txt(v, x0 + 2, y + 2 - S89.folga, px, false, false, S89.az);
       return;
     }
-    y += 18; txt(rot, M, y, 13, true); // valor comprido: em linhas inteiras, sempre a 24 pt
+    y += 26; txt(rot, M, y, 13, true); // valor comprido: em linhas inteiras, sempre a 24 pt
     var ws = v.split(/\s+/), l = '', linhas = [];
     ws.forEach(function (w) { var t = l ? l + ' ' + w : w; if (!l || medir(t, S89.val) <= dir - M - 4) l = t; else { linhas.push(l); l = w; } });
     if (l) linhas.push(l);
