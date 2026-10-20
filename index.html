@@ -131,6 +131,7 @@ details.ap[open]>summary::after{transform:rotate(225deg)}
 .ap-body{padding:0 16px 14px;border-top:1px solid var(--bd)}.ap-body .bar{margin:12px 0 8px}
 dialog{border:1px solid var(--bd);border-radius:14px;background:var(--surface);color:var(--tx);width:min(480px,92vw);box-shadow:var(--sh)}
 dialog::backdrop{background:rgba(10,20,30,.45)}
+.imgdlg{width:min(560px,96vw);max-height:92vh;overflow:auto}.imgdlg img{display:block;width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff;margin:6px 0}.imgdlg .it{margin:0 0 16px}.imgdlg .bar{margin:0;gap:8px}
 @media (min-width:900px){.toolbar{grid-template-columns:auto 1px 1fr;align-items:center}.tb-sep{width:1px;height:34px}}
 @media (max-width:760px){
   .top-in{padding:10px 14px 8px}
@@ -178,6 +179,7 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="busy"><div><span class="spin"></span><span id="busyTxt">Aguarde…</span></div></div>
+<dialog id="imgDlg" class="imgdlg"><div id="imgDlgBody"></div><p style="text-align:right;margin:8px 0 0"><button class="b sec" id="imgDlgX">Fechar</button></p></dialog>
 <dialog id="dlg"><form method="dialog"><p><b>Colar vários nomes</b><br><span class="hint">Um nome por linha.</span></p><textarea id="dlgTxt" rows="10"></textarea><p style="text-align:right;margin-bottom:0"><button class="b sec" value="cancel">Cancelar</button> <button class="b primary" id="dlgOk" value="ok">Adicionar</button></p></form></dialog>
 
 <script src="config.js"></script>
@@ -299,7 +301,7 @@ function carregarEnv(k) {
   call('apiDesignacoesEnvio', k).then(function (d) { S.env[k] = d; var e2 = $('#env-' + k); if (e2) e2.innerHTML = renderEnv(k); }, function (er) { if (el) el.innerHTML = '<div class="empty">' + esc(er.message) + '</div>'; });
 }
 function renderEnv(k) {
-  var d = S.env[k], nova = S.envAuto && S.envAuto.k === k ? S.envAuto.nome : '', h = '<div class="bar" style="margin:0 0 8px"><b>Enviar designações (formulário S-89-T)</b><span class="hint" style="margin:0">Leitura da Bíblia e Faça Seu Melhor no Ministério. Envie a mensagem pelo WhatsApp e anexe o formulário em PDF.</span></div>';
+  var d = S.env[k], nova = S.envAuto && S.envAuto.k === k ? S.envAuto.nome : '', h = '<div class="bar" style="margin:0 0 8px"><b>Enviar designações (formulário S-89-T)</b><span class="hint" style="margin:0">Leitura da Bíblia e Faça Seu Melhor no Ministério. Envie o formulário como <b>imagem</b> (abre no celular de qualquer pessoa) junto com a mensagem pelo WhatsApp.</span></div>';
   if (d.salas.length) {
     h += '<div class="form" style="padding:4px 0">' + d.salas.map(function (s) {
       return '<div><label>Presidente da ' + (s === 'B' ? 'Sala B' : 'Sala C') + '</label><select data-envpres="' + esc(k + '|' + s) + '"><option value="">— selecionar —</option>' + d.opcoesPres.map(function (n) { return '<option' + (d.presSala[s] === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>';
@@ -310,12 +312,107 @@ function renderEnv(k) {
     var det = i.numero + (i.par ? (i.campo === 'titular' ? ' · com ' : ' · acompanhando ') + i.par : '');
     var sala = d.salas.length ? '<select data-envsala="' + esc(k + '|' + i.slot) + '"><option value=""' + (i.sala === '' ? ' selected' : '') + '>Salão principal</option>' + d.salas.map(function (s) { return '<option value="' + s + '"' + (i.sala === s ? ' selected' : '') + '>Sala ' + s + '</option>'; }).join('') + '</select> ' : '';
     var wa = i.telefone ? '<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/' + i.telefone + '?text=' + esc(encodeURIComponent(i.texto)) + '">Mensagem</a>' : '<span class="tag err" title="Cadastre o telefone na aba Cadastros">sem telefone</span>';
-    return '<tr><td><b>' + esc(i.nome) + '</b>' + (nova && norm0(i.nome) === norm0(nova) ? ' <span class="tag ok">substituto: gere o formulário novo</span>' : '') + '<small>' + esc(det) + ' · ' + esc(i.data) + '</small></td><td class="a">' + sala + wa + ' <button class="b sec" data-envpdf="' + esc(k + '|' + i.slot + '|' + i.campo) + '">Formulário PDF</button></td></tr>';
+    return '<tr><td><b>' + esc(i.nome) + '</b>' + (nova && norm0(i.nome) === norm0(nova) ? ' <span class="tag ok">substituto: gere o formulário novo</span>' : '') + '<small>' + esc(det) + ' · ' + esc(i.data) + '</small></td><td class="a">' + sala + wa + ' <button class="b sec" data-envimg="' + esc(k + '|' + i.slot + '|' + i.campo) + '">Formulário (imagem)</button></td></tr>';
   }).join('') + '</table>';
-  h += '<p style="margin:8px 0 0"><button class="b sec" data-envall="' + esc(k) + '">Baixar todos os formulários da semana (PDF)</button></p>';
+  h += '<p style="margin:8px 0 0"><button class="b sec" data-envall="' + esc(k) + '">Formulários da semana (imagens)</button></p>';
   if (d.semTelefone) h += '<p class="hint" style="margin:8px 0 0">' + d.semTelefone + ' sem telefone cadastrado (aba Cadastros, coluna Telefone).</p>';
   return h;
 }
+/* ---------- Formulário S-89-T como IMAGEM (desenhado no próprio aparelho, nítido para o WhatsApp) ----------
+   Mesmo conteúdo do formulário original. Os dados preenchidos ficam com o DOBRO do tamanho (24 pt) e um pouco ACIMA da linha. */
+var S89 = { esc: 3, larg: 360, alt: 480, mg: 30, az: '#1d3557', val: 24, min1: 20, folga: 6 };
+function s89Fonte(px, b, it) { return (it ? 'italic ' : '') + (b ? 'bold ' : '') + px + 'px Arial, Helvetica, sans-serif'; }
+/* Monta o desenho em pontos. medir(texto, px, negrito, itálico) devolve a largura. */
+function s89Layout(f, medir) {
+  var M = S89.mg, W = S89.larg, dir = W - M, ops = [], y = 26;
+  function txt(t, x, yb, px, b, it, cor, al) { ops.push({ k: 't', t: t, x: x, y: yb, px: px, b: !!b, it: !!it, cor: cor || '#000', al: al || 'left' }); }
+  function lin(x1, x2, yl) { ops.push({ k: 'l', x1: x1, x2: x2, y: yl }); }
+  ['DESIGNAÇÃO PARA A REUNIÃO', 'NOSSA VIDA E MINISTÉRIO CRISTÃO'].forEach(function (t, i) { var px = 15; while (medir(t, px, true) > W - 2 * M && px > 10) px -= 0.5; y += i ? 19 : 15; txt(t, W / 2, y, px, true, false, '#000', 'center'); });
+  y += 10;
+  function campo(rot, v) {
+    v = String(v || '');
+    var x0 = M + medir(rot, 13, true) + 6, px = S89.val;
+    while (v && medir(v, px) > dir - x0 - 2 && px > S89.min1) px -= 1;
+    if (!v || medir(v, px) <= dir - x0 - 2) { // rótulo e valor na mesma linha
+      y += S89.val + 12; txt(rot, M, y, 13, true); lin(x0, dir, y + 2);
+      if (v) txt(v, x0 + 2, y + 2 - S89.folga, px, false, false, S89.az);
+      return;
+    }
+    y += 18; txt(rot, M, y, 13, true); // valor comprido: em linhas inteiras, sempre a 24 pt
+    var ws = v.split(/\s+/), l = '', linhas = [];
+    ws.forEach(function (w) { var t = l ? l + ' ' + w : w; if (!l || medir(t, S89.val) <= dir - M - 4) l = t; else { linhas.push(l); l = w; } });
+    if (l) linhas.push(l);
+    linhas.forEach(function (t) { y += S89.val + 10; lin(M, dir, y + 2); txt(t, M + 2, y + 2 - S89.folga, S89.val, false, false, S89.az); });
+  }
+  campo('Nome:', f.nome); campo('Ajudante:', f.ajudante); campo('Data:', f.data); campo('Número da parte:', f.parte);
+  y += 34; txt('Local:', M, y, 14, true);
+  [['', 'Salão principal'], ['B', 'Sala B'], ['C', 'Sala C']].forEach(function (s) { y += 21; ops.push({ k: 'c', x: M + 18, y: y, s: 11, m: (f.sala || '') === s[0] }); txt(s[1], M + 36, y, 13); });
+  y += 26;
+  var seg = [['Observação para o estudante:', 1, 0], ['A lição e a fonte de matéria para a sua designação estão na', 0, 0], ['Apostila da Reunião Vida e Ministério.', 0, 1], ['Veja as instruções para a parte que estão nas', 0, 0], ['Instruções para a Reunião Nossa Vida e Ministério Cristão', 0, 1], ['(S-38).', 0, 0]];
+  var pal = [], esp = medir(' ', 10.5), linhas2 = [], cur = [], larg = 0;
+  seg.forEach(function (s) { s[0].split(' ').forEach(function (w) { pal.push({ w: w, b: s[1], it: s[2], lw: medir(w, 10.5, s[1], s[2]) }); }); });
+  pal.forEach(function (p) { var n = larg + (cur.length ? esp : 0) + p.lw; if (n > W - 2 * M && cur.length) { linhas2.push(cur); cur = [p]; larg = p.lw; } else { cur.push(p); larg = n; } });
+  if (cur.length) linhas2.push(cur);
+  linhas2.forEach(function (l, i) {
+    var tot = l.reduce(function (a, p) { return a + p.lw; }, 0), gap = i < linhas2.length - 1 && l.length > 1 ? (W - 2 * M - tot) / (l.length - 1) : esp, x = M;
+    l.forEach(function (p) { txt(p.w, x, y, 10.5, p.b, p.it); x += p.lw + gap; });
+    y += 13.5;
+  });
+  y += 10; txt('S-89-T        11/23', M, y, 9);
+  return { ops: ops, alt: Math.max(S89.alt, Math.ceil(y + 18)) };
+}
+function desenharS89(f) {
+  var med = document.createElement('canvas').getContext('2d');
+  var L = s89Layout(f, function (t, px, b, it) { med.font = s89Fonte(px, b, it); return med.measureText(t).width; });
+  var cv = document.createElement('canvas'), k = S89.esc, W = S89.larg; cv.width = W * k; cv.height = L.alt * k;
+  var c = cv.getContext('2d'); c.scale(k, k); c.fillStyle = '#fff'; c.fillRect(0, 0, W, L.alt); c.textBaseline = 'alphabetic';
+  L.ops.forEach(function (o) {
+    if (o.k === 't') { c.font = s89Fonte(o.px, o.b, o.it); c.fillStyle = o.cor; c.textAlign = o.al; c.fillText(o.t, o.x, o.y); }
+    else if (o.k === 'l') { c.strokeStyle = '#000'; c.lineWidth = 0.8; c.beginPath(); c.moveTo(o.x1, o.y); c.lineTo(o.x2, o.y); c.stroke(); }
+    else { c.strokeStyle = '#000'; c.lineWidth = 0.9; c.strokeRect(o.x, o.y - o.s + 1, o.s, o.s); if (o.m) { c.lineWidth = 1.6; c.beginPath(); c.moveTo(o.x + 2, o.y - o.s / 2 + 1); c.lineTo(o.x + o.s / 2 - 0.5, o.y - 1.5); c.lineTo(o.x + o.s - 1.5, o.y - o.s + 2.5); c.stroke(); } }
+  });
+  return cv;
+}
+function nomeImgS89(i) { return ('S-89-T ' + i.nome + ' ' + String(i.data).replace(/\//g, '-')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.png'; }
+function s89Imagem(i) {
+  return new Promise(function (ok, no) {
+    var cv = desenharS89({ nome: i.nome, ajudante: i.par, data: i.data, parte: i.numero, sala: i.sala }), nome = nomeImgS89(i);
+    cv.toBlob(function (b) {
+      if (!b) { no(new Error('Não foi possível gerar a imagem.')); return; }
+      var arq = null; try { arq = new File([b], nome, { type: 'image/png' }); } catch (e) { arq = null; }
+      ok({ item: i, nome: nome, blob: b, arq: arq, url: URL.createObjectURL(b) });
+    }, 'image/png');
+  });
+}
+function podeCompartilhar(arqs) { try { return !!(navigator.share && navigator.canShare && arqs.every(Boolean) && navigator.canShare({ files: arqs })); } catch (e) { return false; } }
+function mostrarImgs(itens) {
+  Promise.all(itens.map(s89Imagem)).then(function (l) {
+    fecharImgs(); S.imgs = l;
+    var todas = podeCompartilhar(l.map(function (x) { return x.arq; }));
+    var h = '<p style="margin:0 0 10px"><b>Formulário S-89-T (imagem)</b><br><span class="hint">No celular, <b>Enviar</b> abre a lista de aplicativos: escolha o <b>WhatsApp</b> e a pessoa (a mensagem vai junto). Ou toque em <b>Baixar</b> e anexe a imagem pela Galeria.</span></p>';
+    h += l.map(function (x, n) {
+      var sh = podeCompartilhar([x.arq]) ? '<button class="b wa" data-imgsh="' + n + '">Enviar…</button>' : '';
+      return '<div class="it"><b>' + esc(x.item.nome) + '</b> <small class="hint">' + esc(x.item.numero) + '</small><img src="' + x.url + '" alt="Formulário S-89-T de ' + esc(x.item.nome) + '"><div class="bar">' + sh + '<a class="b sec" href="' + x.url + '" download="' + esc(x.nome) + '">Baixar imagem</a></div></div>';
+    }).join('');
+    if (l.length > 1) h += '<div class="bar" style="margin-top:4px">' + (todas ? '<button class="b sec" data-imgshall="1">Enviar todas…</button>' : '') + '<button class="b sec" data-imgdlall="1">Baixar todas</button></div>';
+    $('#imgDlgBody').innerHTML = h;
+    var dg = $('#imgDlg'); if (dg.showModal) dg.showModal(); else dg.setAttribute('open', '');
+  }, function (er) { toast(er.message, true); });
+}
+function fecharImgs() { (S.imgs || []).forEach(function (x) { try { URL.revokeObjectURL(x.url); } catch (e) { /* nada */ } }); S.imgs = []; }
+function compartilharImgs(l) {
+  var dados = { files: l.map(function (x) { return x.arq; }) };
+  if (l.length === 1) { dados.text = l[0].item.texto || ''; dados.title = l[0].nome; }
+  navigator.share(dados).catch(function (e) { if (e && e.name !== 'AbortError') toast('Não foi possível enviar: ' + e.message + '. Use Baixar imagem.', true); });
+}
+$('#imgDlg').addEventListener('click', function (e) {
+  var t = e.target, d = t.dataset || {};
+  if (t.id === 'imgDlgX') { $('#imgDlg').close(); return; }
+  if (d.imgsh != null) { compartilharImgs([S.imgs[+d.imgsh]]); return; }
+  if (d.imgshall) { compartilharImgs(S.imgs); return; }
+  if (d.imgdlall) { S.imgs.forEach(function (x, n) { setTimeout(function () { var a = document.createElement('a'); a.href = x.url; a.download = x.nome; document.body.appendChild(a); a.click(); a.remove(); }, n * 400); }); toast(S.imgs.length + ' imagens baixadas'); }
+});
+$('#imgDlg').addEventListener('close', fecharImgs);
 function norm0(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
 function baixarB64(r) {
   var a = document.createElement('a'); a.href = 'data:application/pdf;base64,' + r.base64; a.download = r.nome; document.body.appendChild(a); a.click(); a.remove();
@@ -324,8 +421,8 @@ function baixarB64(r) {
 $('#v-prog').addEventListener('click', function (e) {
   var t = e.target, d = t.dataset || {};
   if (d.env) { carregarEnv(d.env); return; }
-  if (d.envpdf) { var p = d.envpdf.split('|'); task('Gerando o formulário…', function () { return call('apiFormularioPdf', p[0], p[1], p[2]); }).then(baixarB64, function () {}); return; }
-  if (d.envall) task('Gerando os formulários…', function () { return call('apiFormularioPdf', d.envall, '', ''); }).then(baixarB64, function () {});
+  if (d.envimg) { var p = d.envimg.split('|'), en = S.env[p[0]], it = en && en.itens.filter(function (x) { return x.slot === p[1] && x.campo === p[2]; })[0]; if (it) mostrarImgs([it]); return; }
+  if (d.envall) { var en2 = S.env[d.envall]; if (en2 && en2.itens.length) mostrarImgs(en2.itens); return; }
 });
 $('#v-prog').addEventListener('change', function (e) {
   var t = e.target, d = t.dataset || {};
@@ -515,7 +612,7 @@ function renderProg() {
       + (s.evento ? '<span class="tag err">Sem reunião — ' + esc(s.evento.tipo) + '</span> ' : '')
       + (s.visita ? '<span class="tag ok">Visita do SC</span> ' : '')
       + (s.manual ? '<span class="tag ok">Designações manuais</span> ' : '')
-      + (s.temNL ? '<span class="tag">Necessidades Locais</span> ' : '')
+      + (s.temNL && !s.evento ? '<span class="tag">Necessidades Locais</span> ' : '')
       + (s.visita || s.evento || s.manual ? '' : !s.designada ? '<span class="tag">sem designação</span>' : (s.avisos ? '<span class="tag err">' + s.avisos + ' aviso(s)</span>' : '<span class="tag ok">designada</span>')) + '</div><span class="chev"></span></div><div class="wk-b" id="wb-' + esc(s.chave) + '"></div></div>';
   });
   $('#v-prog').innerHTML = h;
