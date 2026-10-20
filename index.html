@@ -527,13 +527,16 @@ function carregarPres() {
   call('apiPresidentes').then(function (d) {
     var b2 = $('#presBody'); if (!b2) return;
     b2.innerHTML = d.itens.length ? '<div class="lista">' + d.itens.map(function (i) {
-      return '<div class="li"><div class="tx"><b>' + esc(i.nome) + '</b><small>' + esc(i.periodo) + ' · acesso de ' + esc(i.de) + ' a ' + esc(i.ate) + (i.vigente ? ' <span class="tag ok">agora</span>' : '') + '</small></div><div class="ac"><button class="b sec" data-prcopy="' + esc(i.nome) + '|' + esc(i.semana) + '">Copiar link</button><button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button></div></div>';
+      return '<div class="li"><div class="tx"><b>' + esc(i.nome) + '</b><small>' + esc(i.periodo) + ' · acesso de ' + esc(i.de) + ' a ' + esc(i.ate) + (i.vigente ? ' <span class="tag ok">agora</span>' : '') + '</small></div><div class="ac"><button class="b sec" data-prcopy="' + esc(i.nome) + '|' + esc(i.semana) + '" data-prlink="' + esc(i.link || '') + '">Copiar link</button>'
+        + (i.texto ? '<a class="b wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(i.telefone || '') + '?text=' + esc(encodeURIComponent(i.texto)) + '"' + (i.telefone ? '' : ' title="Sem telefone no cadastro: o WhatsApp pede para escolher o contato"') + '>WhatsApp</a>' : '<button class="b sec" data-przap="' + esc(i.nome) + '|' + esc(i.semana) + '">WhatsApp</button>') + '</div></div>';
     }).join('') + '</div><div class="hint" style="padding:0 16px 12px">O link é um por pessoa e vale automaticamente apenas do domingo anterior até o dia da reunião de cada semana dela.</div>' : '<div class="empty">Nenhum presidente designado nas próximas semanas.</div>';
   }, function (e) { var b3 = $('#presBody'); if (b3) b3.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 }
 $('#v-prog').addEventListener('toggle', function (e) { if (e.target.id === 'presBox') { S.presAberto = e.target.open; if (e.target.open) carregarPres(); } }, true);
 $('#v-prog').addEventListener('click', function (e) {
   var t = e.target, cp = t.dataset && t.dataset.prcopy, zp = t.dataset && t.dataset.przap, x = cp || zp; if (!x) return;
+  var lk = t.dataset.prlink;
+  if (cp && lk) { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(lk).then(function () { toast('Link copiado'); }, function () { prompt('Copie o link:', lk); }); else prompt('Copie o link:', lk); return; }
   var pp = x.split('|');
   call('apiPresidenteLink', pp[0], pp[1]).then(function (r) {
     if (cp) { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.link).then(function () { toast('Link de ' + r.nome + ' copiado'); }, function () { prompt('Copie o link:', r.link); }); else prompt('Copie o link:', r.link); }
@@ -727,10 +730,10 @@ function renderTok() {
   h += '<div class="form"><div><label>Tipo de acesso</label><select id="tkTipo"><option value="geral">Presidente Geral (edita tudo)</option><option value="presidente">Presidente da semana (só vê, PDF e WhatsApp)</option></select></div>'
     + '<div><label id="tkLbl">Nome do Presidente Geral</label><input type="text" id="tkNome" list="tkNomes" placeholder="Nome"><datalist id="tkNomes">' + d.nomes.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist></div></div>'
     + '<div class="actionbar"><button class="b primary" id="tkGerar">Gerar token</button></div>';
-  if (S.novoTok) h += '<div class="bar"><b>Token gerado para ' + esc(S.novoTok.nome) + '</b><span class="hint" style="margin:0">Copie e envie agora. Qualquer token antigo desta pessoa foi apagado.</span><input type="text" readonly id="tkLink" value="' + esc(S.novoTok.link) + '" onclick="this.select()"><button class="b primary" data-tkcopy="' + esc(S.novoTok.link) + '">Copiar link</button> <button class="b sec" data-tkzap="' + esc(S.novoTok.link) + '">Enviar por WhatsApp</button></div>';
+  if (S.novoTok) h += '<div class="bar"><b>Token gerado para ' + esc(S.novoTok.nome) + '</b><span class="hint" style="margin:0">Copie e envie agora. Qualquer token antigo desta pessoa foi apagado.</span><input type="text" readonly id="tkLink" value="' + esc(S.novoTok.link) + '" onclick="this.select()"><button class="b primary" data-tkcopy="' + esc(S.novoTok.link) + '">Copiar link</button> <a class="b sec" target="_blank" rel="noopener" href="https://wa.me/?text=' + esc(encodeURIComponent('Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + S.novoTok.link)) + '">Enviar por WhatsApp</a></div>';
   h += d.tokens.length ? '<div class="lista">' + d.tokens.map(function (t) {
     var link = (d.url || '') + '?t=' + t.token;
-    return '<div class="li"><div class="tx"><b>' + esc(t.nome) + '</b><small>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + ' · criado em ' + esc(t.criado) + '</small></div><div class="ac"><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button><button class="b sec" data-tkzap="' + esc(link) + '" data-tkn="' + esc(t.nome) + '">WhatsApp</button><button class="x" data-tkdel="' + esc(t.id) + '" title="Revogar">✕</button></div></div>';
+    return '<div class="li"><div class="tx"><b>' + esc(t.nome) + '</b><small>' + (t.tipo === 'geral' ? 'Presidente Geral' : 'Presidente da semana') + ' · criado em ' + esc(t.criado) + '</small></div><div class="ac"><button class="b sec" data-tkcopy="' + esc(link) + '">Copiar link</button><a class="b sec" target="_blank" rel="noopener" href="https://wa.me/?text=' + esc(encodeURIComponent('Olá! Segue o seu link de acesso ao sistema Vida e Ministério: ' + link)) + '">WhatsApp</a><button class="x" data-tkdel="' + esc(t.id) + '" title="Revogar">✕</button></div></div>';
   }).join('') + '</div>' : '<div class="empty">Nenhum token gerado.</div>';
   b.innerHTML = h;
 }
